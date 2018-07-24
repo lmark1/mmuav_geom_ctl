@@ -5,13 +5,44 @@
  *      Author: lmark
  */
 
-#ifndef SRC_MORUS_MODULES_MMUAV_GEOM_CTL_UAVGEOMETRYCONTROL_H_
-#define SRC_MORUS_MODULES_MMUAV_GEOM_CTL_UAVGEOMETRYCONTROL_H_
+#ifndef UAV_GEOMETRY_CONTROL_H
+#define UAV_GEOMETRY_CONTROL_H
+
+// Pixhawk
+#include <px4.h>
+
+// Standard
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <math.h>
+
+
+class UavGeometryControl;
+
+namespace uav_geometry_control
+{
+  extern UavGeometryControl *instance;
+}
+
 
 class UavGeometryControl {
 public:
+
 	UavGeometryControl();
-	virtual ~UavGeometryControl();
+	~UavGeometryControl();
+
+	/// Starts the position control task in background.
+	int start();
+
+protected:
+
+	// Node handles for subscribers and publishers
+	px4::NodeHandle attitude_control_node_handle_;
+	px4::AppState attitude_control_app_state_;
+
 };
 
-#endif /* SRC_MORUS_MODULES_MMUAV_GEOM_CTL_UAVGEOMETRYCONTROL_H_ */
+#endif /* UAV_GEOMETRY_CONTROL_H */

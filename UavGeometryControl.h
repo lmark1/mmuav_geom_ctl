@@ -71,16 +71,6 @@ private:
 	static void geometryControlTaskTrampoline(int argc, char *argv[]);
 	void geometryControlTaskMain();
 
-	/**
-	 * Calculate b3_d and f_u as position tracking control inputs.
-	 *
-	 * @param pos_desired - desired position reference
-	 * 						(may change due to prefilter)
-	 * @param pos_old - old position
-	 * @param dt - time interval
-	 * @param b3_d - thrust heading reference, assigned in method
-	 * @param f_u - thrust magnitude value, assigned in method
-	 */
 	void trajectoryTracking(
 			const Matrix<double, 3, 1> pos_desired,
 			const Matrix<double, 3, 1> pos_old,
@@ -88,18 +78,6 @@ private:
 			Matrix<double, 3, 1> &b3_d,
 			double &f_u);
 
-	/**
-	 * Calculate control moments M_u used for attitude tracking.
-	 *
-	 * @param b1_d - desired heading
-	 * @param b3_d - desired thrust vector
-	 * @param dt - time interval
-	 * @param R_c_old - reference for old calculated rotation matrix
-	 * 					(Position tracking)
-	 * @param omega_c_old - reference for old calculated angular velocity
-	 * 						(Position tracking)
-	 * @param M_u - control moments, assigned in method
-	 */
 	void attitudeTracking(
 			const Matrix<double, 3, 1> b1_desired,
 			const Matrix<double, 3, 1> b3_desired,
@@ -108,16 +86,6 @@ private:
 			Matrix<double, 3, 3> &omega_c_old,
 			Matrix<double, 3, 1> &M_u);
 
-	/**
-	 * Calculate and set desired angular velocity and
-	 * desired angular acceleration based on R_c[k] and R_c[k-1].
-	 *
-	 * @param R_c - Calculated R
-	 * @param R_c_old - Calculated old R
-	 * @param R_mv - Measured R
-	 * @param omega_c_old - Reference to old angular velocity value
-	 * @param dt
-	 */
 	void calculateDesiredAngularVelAndAcc(
 			const Matrix<double, 3, 3> R_c,
 			const Matrix<double, 3, 3> R_c_old,
@@ -125,61 +93,10 @@ private:
 			Matrix<double, 3, 3> &omega_c_old,
 			double dt);
 
-	/**
-	 * Calculate rotor velocities from given vector containing
-	 * total thrust and moments M_x, M_y, M_z.
-	 *
-	 * @param thrust_moment_vec
-	 * @param transform_matrix - matrix transforms given vector to forces
-	 * @rotor_velocities
-	 */
 	void calculateRotorVelocities(
 			Matrix<double, 4, 1> thrust_moment_vec,
 			Matrix<double, 4, 4> transform_matrix,
 			Matrix<double, 4, 1>& rotor_velocities);
-
-
-	/**
-	 * Perform hat operator on given vector components.
-	 *
-	 * @param x - x vector component
-	 * @param y - y vector component
-	 * @param z - z vector component
-	 * @param hatMatrixs - Matrix of the following form:
-	 * 	[ 0  -z,  y]
-	 * 	[ z,  0, -x]
-	 * 	[-y,  x,  0]
-	 */
-	void hatOperator(
-			const double x,
-			const double y,
-			const double z,
-			Matrix<double, 3, 3> &hatMatrix);
-
-	/**
-	 * Perform a vee( V ) operator on a given hatMatrix.
-	 * It is implied that the given hatMatrix is a skew matrix.
-	 * It will decompose the skew matrix into a given veeVector reference.
-	 *
-	 * @param hatMatrx
-	 * @param veeVector
-	 */
-	void veeOperator(
-			const Matrix<double, 3, 3> hatMatrix,
-			Matrix<double, 3, 1> &veeVector);
-	/**
-	 * Euler angles represented as a rotation matrix.
-	 *
-	 * @param roll
-	 * @param pitch
-	 * @param yaw
-	 * @param rotMatrix - Rotation matrix will be stored here
-	 */
-	void euler2RotationMatrix(
-			const double roll,
-			const double pitch,
-			const double yaw,
-			Matrix<double, 3, 3> &rotMatrix);
 
 	// Publishers
 	px4::Publisher<px4::px4_moving_mass_setpoint_array>
@@ -203,12 +120,17 @@ private:
 	math::Vector<3> attitude_measured_;
 	math::Vector<3> rates_measured_;
 
+	matrix::Matrix<double, 3, 3> R_d_, R_mv_;
+	matrix::Matrix<double, 3, 1> omega_mv_, omega_d_, alpha_d_;
+	matrix::Matrix<double, 3, 1> x_mv_, x_d_, v_mv_, v_d_, a_d_, b1_d_;
+
 	// Controller flags
 	bool armed_flag_;
 	bool roll_control_flag_previous_, roll_control_flag_;
 	bool pitch_control_flag_previous_, pitch_control_flag_;
 	bool yaw_control_flag_previous_, yaw_control_flag_;
 	bool yaw_rate_control_flag_previous_, yaw_rate_control_flag_;
+	bool enable_mass_control_;
 
 	// Parameters object
 	UavGeometryControlParams params_;
@@ -220,6 +142,14 @@ private:
 	int geometry_control_task_;
 	bool geometry_control_task_should_exit_;
 
+	/**
+	 * CONTROLLER PARAMETERS:
+	 *	- k_x: position tracking error gain (eX)
+	 *	- k_v: velocity tracking error gain (eV)
+	 *	- k_R: orientation matrix error gain (eR)
+	 *	- k_omega: angular velocity error gain (eOmega)
+	 */
+	Matrix<double, 3, 3> k_x_, k_v_, k_R_, k_omega_;
 
 	/* Current control mode:
 	 * 	- position control
@@ -229,5 +159,42 @@ private:
 	int current_control_mode_;
 
 };
+
+double saturation(
+		double value,
+		double lowLimit,
+		double highLimit);
+
+double norm(Matrix<double, 3, 1> vec);
+
+Matrix<double, 3, 1> cross(
+		Matrix<double, 3, 1> vec1,
+		Matrix<double, 3, 1> vec2);
+
+double dot(
+		Matrix<double, 3, 1> vec1,
+		Matrix<double, 3, 1> vec2);
+
+void vecSqrt(Matrix<double, 4, 1>& vec);
+
+Matrix<double, 4, 1> vecSign(Matrix<double, 4, 1> vec);
+
+double signum(double val);
+
+void hatOperator(
+			const double x,
+			const double y,
+			const double z,
+			Matrix<double, 3, 3> &hatMatrix);
+
+void veeOperator(
+		const Matrix<double, 3, 3> hatMatrix,
+		Matrix<double, 3, 1> &veeVector);
+
+void euler2RotationMatrix(
+		const double roll,
+		const double pitch,
+		const double yaw,
+		Matrix<double, 3, 3> &rotMatrix);
 
 #endif /* UAV_GEOMETRY_CONTROL_H */
